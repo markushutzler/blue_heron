@@ -71,6 +71,9 @@ defmodule BlueHeron.Peripheral do
     :gen_statem.call(pid, :disconnect)
   end
 
+  @doc "Blocking HCI command."
+  def hci_command(pid, cmd), do: :gen_statem.call(pid, {:hci_command, cmd})
+
   @doc """
   Send a HandleValueNotification packet
 
@@ -127,6 +130,11 @@ defmodule BlueHeron.Peripheral do
 
   def wait_working({:call, _from}, _call, _data), do: {:keep_state_and_data, [:postpone]}
 
+  def ready({:call, from}, {:hci_command, cmd}, data) do
+    resp = BlueHeron.hci_command(data.ctx, cmd)
+    {:keep_state_and_data, {:reply, from, resp}}
+  end
+
   def ready({:call, from}, {:set_parameters, params}, data) do
     command = SetAdvertisingParameters.new(params)
 
@@ -164,6 +172,11 @@ defmodule BlueHeron.Peripheral do
     :keep_state_and_data
   end
 
+  def advertising({:call, from}, {:hci_command, cmd}, data) do
+    resp = BlueHeron.hci_command(data.ctx, cmd)
+    {:keep_state_and_data, {:reply, from, resp}}
+  end
+
   def advertising({:call, from}, :stop_advertising, data) do
     command = SetAdvertisingEnable.new(advertising_enable: false)
 
@@ -196,6 +209,11 @@ defmodule BlueHeron.Peripheral do
 
   def advertising({:call, from}, :authenticate, _data) do
     {:keep_state_and_data, {:reply, from, {:error, :not_connected}}}
+  end
+
+  def connected({:call, from}, {:hci_command, cmd}, data) do
+    resp = BlueHeron.hci_command(data.ctx, cmd)
+    {:keep_state_and_data, {:reply, from, resp}}
   end
 
   def connected({:call, from}, :disconnect, data) do
